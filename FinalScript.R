@@ -180,11 +180,12 @@ library(clustree)
 library(stringr)
 library(magrittr)
 
-genes = c('Abi3bp','Aebp1','Cilp','Creld2','Crispld1','Efemp2','Egflam','Eln','Emilin1','Fbn2',
-          'Gas6','Igfbp7','Igfbp6','Ltbp2','Mfap2','Mfap4','Mfap5','Mgp','Postn',
-          'Slit2','Sparc','Spp1','Svep1','Thbs2','Thbs4','Col11a1','Col12a1',
-          'Col16a1','Col28a1','Col4a3','Col4a4','Col4a5','Col8a1','Col8a2','Bgn',
-          'Fmod','Omd','Dpp4')
+genes = c('Abi3bp','Aebp1','Bgn','Cilp','Col11a1','Col12a1',
+          'Col16a1','Col28a1','Col4a3','Col4a4','Col4a5','Col8a1','Col8a2','Creld2',
+          'Crispld1','Efemp2','Egflam','Eln','Emilin1','Fbn2','Fmod',
+          'Gas6','Igfbp7','Igfbp6','Ltbp2','Mfap2','Mfap4','Mfap5','Mgp','Omd','Postn',
+          'Slit2','Sparc','Spp1','Svep1','Thbs2','Thbs4',
+          'Acta2','Col1a1',"Dcn",'Dpp4','Fap','Fn1','Pdgfra','Pdgfrb','Vim','Gli1','Gli3','Smo')
 
 #
 
@@ -216,7 +217,7 @@ Matrisome = c('5430419D17Rik','Abi3bp','Adipoq','Aebp1','Agrn',
               'Hapln4','Hspg2','Impg1','Impg2','Kera','Lum','Ncan','Nepn',
               'Nyx','Ogn','Omd','Optc','Podn','Podnl1','Prelp','Prg2','Prg3','Spock2','Spock3','Srgn','Vcan')
 
-#Read Files
+#Read Files, use the path according to your file location
 Mock = readRDS("Set_Path/mock215_(SEURAT_v3)_02.rds")
 Ligated = readRDS("Set_Path/Lig1130_(SEURAT_v3)_02.rds")
 
@@ -298,19 +299,8 @@ Gli_subset_norm = FindClusters(Gli_subset_norm, resolution = .1)
 #Spatial visualization of genes
 
 Lig_Mock_Merge <- RunUMAP(Lig_Mock_Merge, reduction = "pca", dims = 1:14)
-FeaturePlot(Lig_Mock_Merge, features = c("Ptprcap","Pdgfra","Pdgfrb","Pecam1","Adgre1","Col1a1","Epcam","Cd74"))
-VlnPlot(Lig_Mock_Merge, features = c("Ptprcap","Pdgfra","Pdgfrb","Pecam1","Adgre1","Col1a1","Epcam","Cd74","Gli1"))
-VlnPlot(Lig_Mock_Merge, features = "Gli1")
-#VlnPlot(Lig_Mock_Merge, features = "Adgre1", split.by = "protocol")
-#VlnPlot(Lig_Mock_Merge, features = "Pdgfra", split.by = "protocol")
-#VlnPlot(Lig_Mock_Merge, features = "Pdgfrb", split.by = "protocol")
-#VlnPlot(Lig_Mock_Merge, features = "Pecam1", split.by = "protocol")
+VlnPlot(Lig_Mock_Merge, features = c("Pdgfra","Pdgfrb","Pecam1","Adgre1","Col1a1","Epcam","Ptprcap","Cd74","Gli1"),ncol = 5)
 DimPlot(Lig_Mock_Merge,reduction = "umap",label = TRUE,label.size = 4,pt.size = .5,repel = TRUE)
-DimPlot(Lig_Mock_Merge, reduction = "umap", split.by = "protocol")
-p1 <- DimPlot(Lig_Mock_Merge, reduction = "umap", group.by = "protocol",)
-p2 <- DimPlot(Lig_Mock_Merge, reduction = "umap", label = TRUE, repel = TRUE)
-p1 + p2
-p1
 
 #Generates Table for total gene expression, used for identifying cluster identities in whole dataset
 Pos_genes_all = FindAllMarkers(Lig_Mock_Merge, only.pos = TRUE, return.thresh =  .000002498043)
@@ -318,24 +308,12 @@ Pos_genes_all = FindAllMarkers(Lig_Mock_Merge, only.pos = TRUE, return.thresh = 
 #
 
 pdgfr_Gli_subset <- RunUMAP(pdgfr_Gli_subset, reduction = "pca", dims = 1:14)
-DimPlot(pdgfr_Gli_subset,reduction = "umap",label = TRUE,label.size = 10,pt.size = 1.5,repel = TRUE)+theme(text = element_text(size = 25),axis.text = element_text(size = 20))
-VlnPlot(pdgfr_Gli_subset, features = c("Pdgfra","Pdgfrb","Col1a1","Gli1"))
+DimPlot(pdgfr_Gli_subset,reduction = "umap",label = TRUE,label.size = 16,pt.size = 3.5,repel = TRUE)+theme(text = element_text(size = 25),axis.text = element_text(size = 20))
 VlnPlot(pdgfr_Gli_subset, features = c("Pdgfra","Pdgfrb","Col1a1","Gli1","Postn","Dpp4"),split.by = "protocol")
-p3 <- DimPlot(pdgfr_Gli_subset, reduction = "umap", group.by = "protocol",)
-p3
-DimPlot(pdgfr_Gli_subset, reduction = "umap", split.by = "protocol")
-FeaturePlot(pdgfr_Gli_subset, features = c("Pdgfra","Pdgfrb","Col1a1","Gli1","Adgre1","Pecam1"))
 
 #
 
 Gli_subset_norm <- RunUMAP(Gli_subset_norm, reduction = "pca", dims = 1:14)
-DimPlot(Gli_subset_norm,reduction = "umap",label = TRUE,label.size = 4,pt.size = 2,repel = TRUE)
-VlnPlot(Gli_subset_norm, features = c("Pdgfra","Pdgfrb","Col1a1","Gli1","Adgre1","Pecam1"))
-VlnPlot(Gli_subset_norm, features = c("Pdgfra","Pdgfrb","Col1a1","Gli1","Adgre1","Pecam1"),split.by = "protocol")
-p3 <- DimPlot(Gli_subset_norm, reduction = "umap", group.by = "protocol",pt.size = 2)
-p3
-DimPlot(Gli_subset_norm, reduction = "umap", split.by = "protocol")
-FeaturePlot(Gli_subset_norm, features = c("Pdgfra","Pdgfrb","Col1a1","Gli1","Adgre1","Pecam1"))
 
 #Changing identities of clusters for mock vs ligated analysis
 Mod_merge = Lig_Mock_Merge
@@ -373,26 +351,41 @@ table(Idents(Mod_subset))
 table(Idents(Mod_merge_gli1))
 
 #Dotplots
-#DotPlot(Lig_Mock_Merge, features = c("Mgp","Dcn",'Bgn','Col1a2','Col3a1','Spp1','Col1a1','Cilp','Lum','Thbs4','Mfap5','Col6a1','Col6a3'),split.by = 'protocol')
-#DotPlot(pdgfr_Gli_subset, features = c("Mgp","Dcn",'Bgn','Col1a2','Col3a1','Spp1','Col1a1','Cilp','Lum','Thbs4','Mfap5','Col6a1','Col6a3'),split.by = 'protocol')
-#DotPlot(Mod_subset, features = c("Mgp","Dcn",'Bgn','Col1a2','Col3a1','Spp1','Col1a1','Cilp','Lum','Thbs4','Mfap5','Col6a1','Col6a3'))
-
-#cluster_0 = subset(pdgfr_Gli_subset, idents = 0)
 DotPlot(pdgfr_Gli_subset, features = genes,cols = "RdBu", split.by = 'protocol')+RotatedAxis()+ 
-  theme(text = element_text(size = 15),axis.text = element_text(size = 15))#+theme(panel.background = 
-# element_rect(fill = 'gray',colour = 'gray'))
-
-
+  theme(text = element_text(size = 15),axis.text = element_text(size = 15))
+#Arranges the identities in specified order
 levels(Mod_merge) = c("0_Mock","0_Ligated","1_Mock","1_Ligated","2_Mock","2_Ligated",
                       "3_Mock","3_Ligated", "4_Mock","4_Ligated",
                       "5_Mock","5_Ligated","6_Mock","6_Ligated","7_Mock",
                       "7_Ligated","8_Mock","8_Ligated","9_Mock","9_Ligated",
                       "10_Mock","10_Ligated","11_Mock","11_Ligated")
+#Heatmap plot
 DoHeatmap(Mod_merge, features = Matrisome, size = 1.75)+ theme(axis.text.y = element_text(size = 5))
 
 levels(Mod_subset) = c("0_Mock","0_Ligated","1_Mock","1_Ligated","2_Mock","2_Ligated",
                        "3_Mock","3_Ligated", "4_Mock","4_Ligated")
-DoHeatmap(Mod_subset, features = Matrisome, size = 1.75)+ theme(axis.text.y = element_text(size = 5))
+
+#Used for generating figure 6A
+CellData_gli1 <- FetchData(Lig_Mock_Merge, vars = c("Gli1","protocol"), slot = "data")
+CellData_pdgfra <- FetchData(Lig_Mock_Merge, vars = c("Pdgfra"), slot = "data")
+CellData_pdgfrb <- FetchData(Lig_Mock_Merge, vars = c("Pdgfrb"), slot = "data")
+CellData_adgre <- FetchData(Lig_Mock_Merge, vars = c("Adgre1"), slot = "data")
+
+Gli_adgre_pos = sum(CellData_adgre$Adgre1>0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra==0 & CellData_pdgfrb$Pdgfrb==0)
+Gli_adgre_pos_mock = sum(CellData_adgre$Adgre1>0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra==0 & CellData_pdgfrb$Pdgfrb==0 & CellData_gli1$protocol=="Mock")
+Gli_adgre_Pdgfra_Pdgfrb_pos = sum(CellData_adgre$Adgre1>0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra>0 & CellData_pdgfrb$Pdgfrb>0)
+Gli_adgre_Pdgfra_Pdgfrb_pos_mock = sum(CellData_adgre$Adgre1>0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra>0 & CellData_pdgfrb$Pdgfrb>0 & CellData_gli1$protocol=="Mock")
+Gli_Pdgfra_Pdgfrb_pos = sum(CellData_pdgf$Adgre1==0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra>0 & CellData_pdgfrb$Pdgfrb>0)
+Gli_Pdgfra_Pdgfrb_pos_mock = sum(CellData_adgre$Adgre1==0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra>0 & CellData_pdgfrb$Pdgfrb>0 & CellData_gli1$protocol=="Mock")
+Gli_Pdgfra_pos = sum(CellData_adgre$Adgre1==0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra>0 & CellData_pdgfrb$Pdgfrb==0)
+Gli_Pdgfra_pos_mock = sum(CellData_adgre$Adgre1==0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra>0 & CellData_pdgfrb$Pdgfrb==0 & CellData_gli1$protocol=="Mock")
+Gli_Pdgfrb_pos = sum(CellData_adgre$Adgre1==0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra==0 & CellData_pdgfrb$Pdgfrb>0)
+Gli_Pdgfrb_pos_mock = sum(CellData_adgre$Adgre1==0 & CellData_gli1$Gli1>0 & CellData_pdgfra$Pdgfra==0 & CellData_pdgfrb$Pdgfrb>0 & CellData_gli1$protocol=="Mock")
+
+Gli1_Pos <- sum(CellData_gli1$Gli1>0)
+Gli1_Pos_M <- sum(CellData_gli1$Gli1>0 & CellData_gli1$protocol=='Mock')
+Gli1_Pos_L <- sum(CellData_gli1$Gli1>0 & CellData_gli1$protocol=='Ligated')
+
 
 
 
