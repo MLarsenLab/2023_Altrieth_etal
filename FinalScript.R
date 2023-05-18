@@ -386,7 +386,347 @@ Gli1_Pos <- sum(CellData_gli1$Gli1>0)
 Gli1_Pos_M <- sum(CellData_gli1$Gli1>0 & CellData_gli1$protocol=='Mock')
 Gli1_Pos_L <- sum(CellData_gli1$Gli1>0 & CellData_gli1$protocol=='Ligated')
 
+#Version 6
+#Calculates the number of cells expressing certain genes 
+#Uses Seurat packages for analysis: https://satijalab.org/seurat/index.html
+#This version is using data that is deconvoluted using CellRanger
+#Includes function for finding number/percentage of cells expressing a specific gene
 
+######## sessionInfo()
+#R version 3.6.3 (2020-02-29)
+#Platform: x86_64-pc-linux-gnu (64-bit)
+#Running under: Debian GNU/Linux 10 (buster)
 
+#Matrix products: default
+#BLAS/LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.3.5.so
+
+#locale:
+#  [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+#[3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+#[5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=C             
+#[7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+#[9] LC_ADDRESS=C               LC_TELEPHONE=C            
+#[11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+
+#attached base packages:
+#  [1] stats     graphics  grDevices utils     datasets  methods   base     
+
+#other attached packages:
+#  [1] stringr_1.4.0   magrittr_1.5    patchwork_1.0.0 pheatmap_1.0.12
+#[5] ggplot2_3.3.0   dplyr_0.8.5     cowplot_1.0.0   Seurat_3.1.5   
+
+#loaded via a namespace (and not attached):
+#  [1] httr_1.4.1          tidyr_1.0.2         jsonlite_1.6.1     
+#[4] viridisLite_0.3.0   splines_3.6.3       lsei_1.2-0         
+#[7] leiden_0.3.3        gtools_3.8.2        assertthat_0.2.1   
+#[10] ggrepel_0.8.2       globals_0.12.5      pillar_1.4.3       
+#[13] lattice_0.20-44     glue_1.4.0          reticulate_1.15    
+#[16] digest_0.6.25       RColorBrewer_1.1-2  colorspace_1.4-1   
+#[19] htmltools_0.4.0     Matrix_1.2-18       plyr_1.8.6         
+#[22] pkgconfig_2.0.3     tsne_0.1-3          listenv_0.8.0      
+#[25] purrr_0.3.4         scales_1.1.0        RANN_2.6.1         
+#[28] gdata_2.18.0        RSpectra_0.16-0     Rtsne_0.15         
+#[31] tibble_3.0.1        farver_2.0.3        ellipsis_0.3.0     
+#[34] withr_2.4.2         ROCR_1.0-7          pbapply_1.4-2      
+#[37] lazyeval_0.2.2      survival_3.2-7      crayon_1.4.1       
+#[40] future_1.17.0       nlme_3.1-152        MASS_7.3-51.5      
+#[43] gplots_3.0.3        ica_1.0-2           tools_3.6.3        
+#[46] fitdistrplus_1.0-14 data.table_1.12.8   lifecycle_0.2.0    
+#[49] plotly_4.9.2.1      munsell_0.5.0       cluster_2.1.0      
+#[52] irlba_2.3.3         compiler_3.6.3      rsvd_1.0.3         
+#[55] caTools_1.18.0      rlang_0.4.5         grid_3.6.3         
+#[58] ggridges_0.5.2      rstudioapi_0.13     RcppAnnoy_0.0.16   
+#[61] rappdirs_0.3.1      htmlwidgets_1.5.1   igraph_1.2.5       
+#[64] labeling_0.3        bitops_1.0-6        npsurv_0.4-0       
+#[67] gtable_0.3.0        codetools_0.2-16    reshape2_1.4.4     
+#[70] R6_2.5.0            gridExtra_2.3       zoo_1.8-7          
+#[73] uwot_0.1.8          future.apply_1.5.0  KernSmooth_2.23-16 
+#[76] ape_5.4             stringi_1.4.6       parallel_3.6.3     
+#[79] Rcpp_1.0.4.6        vctrs_0.2.4         sctransform_0.2.1  
+#[82] png_0.1-7           tidyselect_1.0.0    lmtest_0.9-37  
+
+############################## Libraries and start up ##########################################
+################################################################################################
+
+#Allows for python UMAP calculations using miniconda environment "seurat"
+reticulate::use_condaenv(condaenv = "seurat", conda = "/network/rit/lab/larsenlab-rit/Next_Generation_Sequencing_Data/miniconda3/bin/conda")
+
+library(Seurat)
+#library(SeuratData)
+library(cowplot)
+library(dplyr)
+library(ggplot2)
+library(pheatmap)
+library(patchwork)
+library(magrittr)
+library(stringr)
+#Sets the working directory where the single cell data
+setwd("")
+
+############################## Custom Functions ###################################################################
+###################################################################################################################
+
+#Funtion "Make_pdf" makes a pdf file for plot with "Title", quick a dirty image generator/save
+#Title is Title, plot is the plot defined as an object, width and height are the .pdf's dimensions
+Make_pdf <- function(Title, plot, width, height){
+  pdf(Title, width = width, height = height)
+  print(plot)
+  dev.off()
+}
+
+#Fucntion for quickly making UMAP and violin plots for all genes from a gene list
+#Loop to create Feature plots and violin plots for GenesLists, can pass any gene-list to generate plots
+Gene_Graphs <- function(GeneList, Object, Name){
+  for(i in GeneList[1:100]){
+    print(i)
+    plot3 <- FeaturePlot(Object, features = i, min.cutoff = "q9") + theme(title = element_text(size = 30), axis.title = element_text(size = 20), axis.text = element_text(size = 18))
+    plot4 <- VlnPlot(Object, features = i, pt.size = 0.1) + ylim(0,NA) + NoLegend() + theme(axis.title = element_text(size = 20), axis.text = element_text(size = 18))
+    Dot_Plot_Title <- str_c("UMAP_Plot_", i, "_", Name, "_01.pdf")
+    Violin_Plot_Title <- str_c("Violin_Plot_", i, "_", Name, "_01.pdf")
+    pdf(file = Dot_Plot_Title, width = 8, height = 5)
+    print(plot3)
+    dev.off()  
+    pdf(file = Violin_Plot_Title, width = 8, height = 4)
+    print(plot4)
+    dev.off()
+  }
+}
+
+#Fucntion for quickly making UMAP and violin plots for all genes from a gene list
+#Loop to create Feature plots and violin plots for GenesLists, can pass any gene-list to generate plots
+#Splits the graphs based on the sample
+Gene_Graphs_2 <- function(GeneList, Object, Name){
+  for(i in GeneList[1:100]){
+    print(i)
+    plot3 <- FeaturePlot(Object, features = i, min.cutoff = "q9", split.by = "sample") + theme(title = element_text(size = 30), axis.title = element_text(size = 20), axis.text = element_text(size = 18))
+    plot4 <- VlnPlot(Object, features = i, pt.size = 0.1, split.by = "sample") + ylim(0,NA) + theme(legend.text = element_text(face = "bold"),axis.text.x = element_text(size = 15,face = "bold"),axis.text.y = element_text(size = 15,face = "bold"), axis.title.y = element_text(size = 30))
+    Dot_Plot_Title <- str_c("UMAP_Plot_SampleSplit_", i, "_", Name, "_01.pdf")
+    Violin_Plot_Title <- str_c("Violin_Plot_SampleSplit_", i, "_", Name, "_01.pdf")
+    pdf(file = Dot_Plot_Title, width = 16, height = 5)
+    print(plot3)
+    dev.off()  
+    pdf(file = Violin_Plot_Title, width = 10, height = 5.5)
+    print(plot4)
+    dev.off()
+  }
+}
+
+# Function that can calculate proportion of cells expressing a gene
+# https://github.com/satijalab/seurat/issues/371
+# updated 1/31/2020 to accommodate V3.1
+# updated 2/4/2020 to output "NA" for genes not detected in certain subgroups
+# calculates total cells expressing a gene (raw counts > 0) by metadata groups
+# can be grouped by different samples types or cluster_# based on metadata
+# 'ncells' counts to total number of cells, can be passed to have percentages in calc_helper
+# you can adjust the threshold for RNA count to select for cells with more 'higher' expression
+TotalCellExpringGene <- function(object, genes, group.by = "all"){
+  if(group.by == "all"){
+    prct = unlist(lapply(genes,calc_helper, object=object))
+    result = data.frame(Markers = genes, Cell_proportion = prct)
+    return(result)
+  }
+  
+  else{        
+    list = SplitObject(object, group.by)
+    factors = names(list)
+    
+    results = lapply(list, TotalCellExpringGene, genes=genes)
+    for(i in 1:length(factors)){
+      results[[i]]$Feature = factors[i]
+    }
+    combined = do.call("rbind", results)
+    return(combined)
+  }
+}
+# for total cells:
+calc_helper <- function(object,genes){
+  counts = object[['RNA']]@counts
+  ncells = ncol(counts)
+  if(genes %in% row.names(counts)){
+    sum(counts[genes,]>0)
+  }else{return(NA)}
+}
+
+PrctCellExpringGene <- function(object, genes, group.by = "all"){
+  if(group.by == "all"){
+    prct = unlist(lapply(genes,calc_helper.2, object=object))
+    result = data.frame(Markers = genes, Cell_proportion = prct)
+    return(result)
+  }
+  
+  else{        
+    list = SplitObject(object, group.by)
+    factors = names(list)
+    
+    results = lapply(list, PrctCellExpringGene, genes=genes)
+    for(i in 1:length(factors)){
+      results[[i]]$Feature = factors[i]
+    }
+    combined = do.call("rbind", results)
+    return(combined)
+  }
+}
+# for percentage of cells use this function:
+calc_helper.2 <- function(object,genes){
+  counts = object[['RNA']]@counts
+  ncells = ncol(counts)
+  if(genes %in% row.names(counts)){
+    sum(counts[genes,]>0)/ncells
+  }else{return(NA)}
+}
+#Example for finding all cells expressing a gene:
+#Finds and saves a .csv of cell numbers expressing certain genes
+#performs the counts based on the cluster assignment
+NumberCellperGene <- PrctCellExpringGene(agg.E16.combined,genes = c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1"), group.by = "seurat_clusters")
+write.csv(NumberCellperGene, file = "NumberOfCellsPerGene_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Integrated_01.csv")
+#performs the counts based on the sample assignment
+NumberCellperGene <- PrctCellExpringGene(agg.E16.combined,genes = c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1"), group.by = "protocol")
+write.csv(NumberCellperGene, file = "NumberOfCellsPerGenePerSample_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Integrated_01.csv")
+
+#Second method for counting cells, can do co-positive cells
+#Example:
+#https://www.rdocumentation.org/packages/Seurat/versions/3.1.0/topics/FetchData
+#This way for scripting
+#FetchData() can pull out cell, gene expression data, and any other data from Seurat objects
+CellData <- FetchData(agg.E16, vars = c("Pdgfra","Pdgfrb","Gli1","Acta2"), slot = "data")
+#Calculates the sum of cells that express gene1
+Pdgfra_Pos <- sum(CellData$Pdgfra>0)
+#Calculates the sum of cells that express gene2
+Pdgfrb_Pos <- sum(CellData$Pdgfrb>0)
+#Calculates the sum of cells that express gene3
+Gli1_Pos <- sum(CellData$Gli1>0)
+#Calculates the sum of cells that express gene4
+Acta2_Pos <- sum(CellData$Acta2>0)
+#Subsets the data for Postive for gene1 and then positive for gene2 then positive for gene3
+Co_Postitive_cell_ID <- CellData %>% subset(Pdgfra>0) %>% subset(Pdgfrb>0) %>% subset(Acta2>0)  
+#Number of Co_positive cells
+Co_Postitive_cell_Total <- nrow(Co_Postitive_cell_ID)
+
+#This is a function that does the same thing as finding number of cells expressing a gene, but for two genes.
+# for total co-positive cells:
+Co_Positive <- function(object,gene1,gene2){
+  CellData <- FetchData(object, vars = c(gene1,gene2), slot = "data")
+  print(head(CellData))
+  Gene1_total_cells <- sum(CellData[,gene1]>0)
+  cat("Total cells positive for", gene1,Gene1_total_cells," ")
+  Gene2_total_cells <- sum(CellData[,gene2]>0)
+  cat("Total cells positive for", gene2,Gene2_total_cells)
+  Co_Postitive_cell_ID <- subset(CellData, CellData[,gene1]>0)
+  Co_Postitive_cell_ID <- subset(Co_Postitive_cell_ID, Co_Postitive_cell_ID[,gene2]>0)
+  print(head(Co_Postitive_cell_ID))
+  Co_Postitive_cell_Total <- nrow(Co_Postitive_cell_ID)
+  cat("Total cells positive for",gene1," & ",gene2," ", Co_Postitive_cell_Total)
+}
+#This is a function that does the same thing as finding number of cells expressing a gene, but for three genes.
+# for total co-positive cells:
+Co_Positive_for3 <- function(object,gene1,gene2,gene3){
+  CellData <- FetchData(object, vars = c(gene1,gene2,gene3), slot = "data")
+  print(head(CellData))
+  Gene1_total_cells <- sum(CellData[,gene1]>0)
+  cat("Total cells positive for", gene1,Gene1_total_cells," ")
+  Gene2_total_cells <- sum(CellData[,gene2]>0)
+  cat("Total cells positive for", gene2,Gene2_total_cells," ")
+  Gene3_total_cells <- sum(CellData[,gene3]>0)
+  cat("Total cells positive for", gene3,Gene3_total_cells," ")
+  Co_Postitive_cell_ID <- subset(CellData, CellData[,gene1]>0)
+  Co_Postitive_cell_ID <- subset(Co_Postitive_cell_ID, Co_Postitive_cell_ID[,gene2]>0)
+  Co_Postitive_cell_ID <- subset(Co_Postitive_cell_ID, Co_Postitive_cell_ID[,gene3]>0)
+  print(head(Co_Postitive_cell_ID))
+  Co_Postitive_cell_Total <- nrow(Co_Postitive_cell_ID)
+  cat("Total cells positive for",gene1," & ",gene2," & ",gene3," ", Co_Postitive_cell_Total)
+}
+
+############################## Loads Data #######################################################
+###################################################################################################################
+
+agg.data.E12 <- readRDS("/network/rit/lab/larsenlab-rit/Next_Generation_Sequencing_Data/scRNAseq/Hauser_2020/R_Results_02/E12_SMG_Annotated_(SEURAT_v4).rds")
+agg.data.E14 <- readRDS("/network/rit/lab/larsenlab-rit/Next_Generation_Sequencing_Data/scRNAseq/Hauser_2020/R_Results_02/E14_SMG_Annotated_(SEURAT_v4).rds")
+agg.data.E16 <- readRDS("/network/rit/lab/larsenlab-rit/Next_Generation_Sequencing_Data/scRNAseq/Hauser_2020/R_Results_02/E16_SMG_Annotated_(SEURAT_v4).rds")
+agg.data.P1 <- readRDS("/network/rit/lab/larsenlab-rit/Next_Generation_Sequencing_Data/scRNAseq/Hauser_2020/R_Results_02/P1_SMG_Annotated_(SEURAT_v4).rds")
+agg.data.Adult <- readRDS("/network/rit/lab/larsenlab-rit/Next_Generation_Sequencing_Data/scRNAseq/Hauser_2020/R_Results_02/Adult_SMG_Annotated_(SEURAT_v4).rds")
+
+############################## Calculates the number of cells expressing a gene ##############################################
+###################################################################################################################
+
+# Sets working directory for NM
+setwd("/network/rit/lab/larsenlab-rit/Next_Generation_Sequencing_Data/scRNAseq/Hauser_2020/R_Results_06")
+
+#Finds percentage for each cluster
+PercentCellperGene <- PrctCellExpringGene(agg.data.E12, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(PercentCellperGene, file = "PercentOfCellsPerGene_E12_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+PercentCellperGene <- PrctCellExpringGene(agg.data.E14, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(PercentCellperGene, file = "PercentOfCellsPerGene_E14_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+PercentCellperGene <- PrctCellExpringGene(agg.data.E16, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(PercentCellperGene, file = "PercentOfCellsPerGene_E16_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+PercentCellperGene <- PrctCellExpringGene(agg.data.P1, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(PercentCellperGene, file = "PercentOfCellsPerGene_P1_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+PercentCellperGene <- PrctCellExpringGene(agg.data.Adult, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(PercentCellperGene, file = "PercentOfCellsPerGene_Adt_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+#Finds Cell number expressing gene for each cluster
+CellCount <- TotalCellExpringGene(agg.data.E12, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(CellCount, file = "NumberOfCellsPerGene_E12_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+CellCount <- TotalCellExpringGene(agg.data.E14, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(CellCount, file = "NumberOfCellsPerGene_E14_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+CellCount <- TotalCellExpringGene(agg.data.E16, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(CellCount, file = "NumberOfCellsPerGene_E16_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+CellCount <- TotalCellExpringGene(agg.data.P1, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(CellCount, file = "NumberOfCellsPerGene_P1_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+CellCount <- TotalCellExpringGene(agg.data.Adult, c("Vim","Pdgfra","Pdgfrb","Acta2","Cnn1","Gli1"), group.by = "CellType")
+write.csv(CellCount, file = "NumberOfCellsPerGene_Adt_Vim_Pdgfra_Pdgfrb_Acta2_Cnn1_Gli1_Integrated_01.csv")
+
+# Subsets the Seurat objects so only stroma is present
+agg.data.E12.stroma <- subset(agg.data.E12, idents = c("Mesenchyme"))
+agg.data.E14.stroma <- subset(agg.data.E14, idents = c("Mesenchyme"))
+agg.data.E16.stroma <- subset(agg.data.E16, idents = c("Mesenchyme"))
+agg.data.P1.stroma <- subset(agg.data.P1, idents = c("Mesenchyme"))
+agg.data.Adult.stroma <- subset(agg.data.Adult, idents = c("Mesenchyme"))
+
+#Finds co-positive cells expressing 2 genes for each cluster
+
+Co_pos <- Co_Positive(agg.data.E12, "Pdgfra","Pdgfrb")
+
+Co_pos <- Co_Positive(agg.data.E12, "Pdgfra","Gli1")
+
+Co_pos <- Co_Positive(agg.data.E12, "Pdgfrb","Gli1")
+
+Co_pos <- Co_Positive(agg.data.E14, "Pdgfra","Pdgfrb")
+
+Co_pos <- Co_Positive(agg.data.E14, "Pdgfra","Gli1")
+
+Co_pos <- Co_Positive(agg.data.E14, "Pdgfrb","Gli1")
+
+Co_pos <- Co_Positive(agg.data.E16, "Pdgfra","Pdgfrb")
+
+Co_pos <- Co_Positive(agg.data.E16, "Pdgfra","Gli1")
+
+Co_pos <- Co_Positive(agg.data.E16, "Pdgfrb","Gli1")
+
+Co_pos <- Co_Positive(agg.data.P1, "Pdgfra","Pdgfrb")
+
+Co_pos <- Co_Positive(agg.data.P1, "Pdgfra","Gli1")
+
+Co_pos <- Co_Positive(agg.data.P1, "Pdgfrb","Gli1")
+
+Co_pos <- Co_Positive(agg.data.Adult, "Pdgfra","Pdgfrb")
+
+Co_pos <- Co_Positive(agg.data.Adult, "Pdgfra","Gli1")
+
+Co_pos <- Co_Positive(agg.data.Adult, "Pdgfrb","Gli1")
+
+# Calculates Co-positive cells for 3 genes that are 
+Co_pos <- Co_Positive_for3(agg.data.E12.stroma, "Pdgfra","Pdgfrb", "Gli1")
+Co_pos <- Co_Positive_for3(agg.data.E14.stroma, "Pdgfra","Pdgfrb", "Gli1")
+Co_pos <- Co_Positive_for3(agg.data.E16.stroma, "Pdgfra","Pdgfrb", "Gli1")
+Co_pos <- Co_Positive_for3(agg.data.P1.stroma, "Pdgfra","Pdgfrb", "Gli1")
+Co_pos <- Co_Positive_for3(agg.data.Adult.stroma, "Pdgfra","Pdgfrb", "Gli1")
 
 
